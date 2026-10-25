@@ -27,7 +27,7 @@ EZStore provides four core modules for managing the B2B sales pipeline:
 | Backend | Go 1.25 · Gin · GORM · Swagger (swaggo) · Testify |
 | Frontend | React 19 · TypeScript · Tailwind CSS 4 · Vite 8 · TanStack React Query · React Hook Form · React Router |
 | Database | PostgreSQL 16 |
-| AI Agent | Python 3.12 · Google ADK 2.10+ (graph Workflow API) · google-agents-cli 1.7 · Gemini 3.8 Flash · MCP Python SDK 2.x (Streamable HTTP) · uv |
+| AI Agent | Python 3.12 · Google ADK 2.10+ (graph Workflow API) · google-agents-cli 1.11 · Gemini 3.8 Flash · MCP Python SDK 2.x (Streamable HTTP) · uv |
 | Build & Deploy | Docker · Docker Compose · Bun (frontend) · Nginx (frontend serving & API proxy) |
 
 ### Project Structure
@@ -38,8 +38,7 @@ ezstore/
 ├── scripts/
 │   └── seed-test-data.sql      # Idempotent test dataset (TRUNCATE + INSERT)
 ├── .env.example                # GEMINI_API_KEY and agent settings (copy to .env)
-├── agent/                      # ★ LAB deliverable — not in this branch. Build it from agent-spec-prompt.md
-│                               #   (agents-cli scaffold → ADK 2.x graph Workflow → connect to mcp_server)
+├── agent/                      # ADK Graph Workflow agent, tests, evaluation datasets and Dockerfile
 ├── mcp_server/
 │   ├── Dockerfile
 │   ├── pyproject.toml           # mcp>=2.2, httpx (+ uv.lock)
@@ -254,69 +253,97 @@ profit_rate  = profit ÷ total_price
 
 ### AI Agent
 
-> **This branch (`workshop-start`) is the lab starting point.** The backend, frontend Chat UI, MCP Server and database are provided; the `agent/` service is what you build by feeding `agent-spec-prompt.md` to your AI coding tool. The description below is the target you are building toward.
+EZStore ships a natural-language quotation assistant in `agent/`, built with Python 3.12 and Google ADK's Graph Workflow API. The intent classifier is the only node that calls Gemini. Routing, field checks, tool selection, and refusals are handled by program logic; each operation node invokes one MCP tool, and `respond` emits the final text.
 
-EZStore includes a natural-language quotation assistant built with Google ADK 2.x. The agent is a **graph Workflow**: only one node calls the LLM (intent classification); tool selection, argument passing, clarification and refusal are all deterministic program logic.
+**Request path:** React Chat UI → nginx `/agent-api` → Agent (`quotation_agent`, port 8080) → MCP Server (`http://mcp-server:8000/mcp`, Streamable HTTP) → backend REST API. The MCP Server is exposed at `http://localhost:8010/mcp` for local Agent development.
 
-**Architecture:**
+**Workflow (`agent/quotation_agent/agent.py`):**
 
+```mermaid
+flowchart TD
+  S([START]) --> C[classify_intent<br/>Gemini · Pydantic output]
+  C --> R[route_intent<br/>programmatic validation and dispatch]
+  R --> G[get_quotation]
+  R --> L[list_customer_quotations]
+  R --> D[duplicate_quotation]
+  R --> P[update_pricing_factor]
+  R --> T[adjust_total_price]
+  R --> O[convert_to_order]
+  R --> Q[clarify]
+  R --> F[refuse]
+  R --> E[service_error]
+  G --> Z[respond]
+  L --> Z
+  D --> Z
+  P --> Z
+  T --> Z
+  O --> Z
+  Q --> Z
+  F --> Z
+  E --> Z
 ```
-User → React Chat UI → nginx /agent-api → Agent (ADK FastAPI, port 8080) → MCP Server (port 8000) → Backend REST API
-                                               │                                  Streamable HTTP
-                                          Gemini 3.8 Flash                        (mcp Python SDK 2.x)
-                                        (AI Studio API key)
 
-Workflow graph (agent/quotation_agent/agent.py):
+Quotation edits use copy-on-write: factor and total-price changes create a copy first, and the original stays unchanged. Total-price adjustment uses the MCP tool's binary search (up to 20 iterations). Missing required fields lead to a clarification and the next user turn continues that request. Off-topic requests are rejected by code. MCP response text is shown with plain-text quotation or order links.
 
-  START → load_context → classify_intent (LLM, output_schema=Intent) → route
-            ├─ get_quotation / list_customer_quotations / duplicate_quotation
-            ├─ update_pricing_factor / adjust_total_price / convert_to_order    ← each calls one MCP tool
-            ├─ clarify     (missing fields → ask, keep state.pending_intent)
-            └─ off_topic   (fixed refusal, decided by code)
-          all → respond    (emit text + update state.chat_history)
-```
+The six operations are `get_quotation`, `list_customer_quotations`, `duplicate_quotation`, `update_pricing_factor`, `adjust_total_price`, and `convert_to_order`.
 
-Every user message re-runs the graph from `START`; cross-turn memory lives in session state (`chat_history`, `pending_intent`), so a user can answer a clarification question in the next message.
+**Configuration:** credentials belong in the repository-root `.env` (copy `.env.example`; never commit the key). `agent/` also reads its optional `.env` for local overrides such as `MCP_URL`.
 
-**Capabilities:**
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Google AI Studio credential (recommended) |
+| `AGENT_MODEL` | Model name; defaults to the required `gemini-3.8-flash` |
+| `MCP_URL` | Local CLI: `http://localhost:8010/mcp`; Compose Agent: `http://mcp-server:8000/mcp` |
+| `MCP_HOST_PORT` | Host port for MCP in Compose; defaults to `8010` |
+| `FRONTEND_URL` | Public frontend URL used in MCP system links; defaults to `http://localhost:3000` |
+| `ALLOW_ORIGINS` | Backend CORS origins; defaults to `http://localhost:3000` |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Set `true` for Vertex AI instead of AI Studio |
+| `GOOGLE_CLOUD_PROJECT` | Vertex AI project ID |
+| `GOOGLE_CLOUD_LOCATION` | Vertex AI location; use `global` |
 
-| Operation | Description |
-|-----------|-------------|
-| Query quotation | Look up quotation details by quotation number (uses `GET /quotations?quotation_number=`) |
-| List customer quotations | List all quotations for a given customer name |
-| Duplicate quotation | Create a new draft copy of a quotation |
-| Modify pricing factor | Duplicate first, then update the pricing factor on the copy |
-| Modify total price | Duplicate first, then binary-search the pricing factor (≤ 20 iterations) to reach a target total |
-| Convert to order | Create an order from the quotation's customer and items, linked via `quotation_id`; the quotation itself is untouched |
+With no model credential, Docker Compose still starts; conversations return a clear credential error. For local Vertex AI development, authenticate with `gcloud auth application-default login` and set the Vertex variables above.
 
-**Key design:**
-- All modifications use **copy-on-write** — the original quotation is never changed
-- All responses include **plain-text system links** to the quotation/order detail pages
-- Off-topic requests are **refused by code**, missing fields trigger a **clarification turn**
-- Agent runs even without an API key (chat returns a clear error), so `docker compose up` never fails on a missing key
-
-**Local development:**
+**Local development:** from the repository root, create `.env` and add an AI Studio key. For PowerShell, use `Copy-Item .env.example .env`; in Bash, use `cp .env.example .env`. Then start the provided data services and seed the test database:
 
 ```bash
-# MCP Server (port 8010 to avoid clashing with other local services)
-cd mcp_server && uv sync
-BACKEND_URL=http://localhost:8080 MCP_PORT=8010 uv run python server.py
-
-# Agent (in another terminal)
-cd agent && cp .env.example .env    # fill GEMINI_API_KEY, set MCP_URL=http://localhost:8010/mcp
-                                    # or Vertex AI: GOOGLE_GENAI_USE_VERTEXAI=true + GOOGLE_CLOUD_PROJECT after `gcloud auth application-default login`
-uv sync --group dev
-agents-cli playground               # web UI
-agents-cli run "我要查詢報價單，報價單編號：QT-20260330-001"
-
-# Tests
-uv run pytest tests/unit -q                       # no LLM, no MCP
-MCP_URL=http://localhost:8010/mcp uv run pytest tests/integration -q   # offline graph tests (+ LLM tests when key is set)
-agents-cli eval run --dataset tests/eval/datasets/quotation-actions.json    # 6 action cases (creates data; reseed before rerun)
-agents-cli eval run --dataset tests/eval/datasets/quotation-guardrails.json # 2 refusals + 1 multi-turn clarification
+docker compose up -d db backend mcp-server
+docker compose exec db psql -U ezstore -f /scripts/seed-test-data.sql
 ```
 
-Trustworthiness evaluation labs for learners: [eval-lab-quick.md](eval-lab-quick.md) (25 min, in class) and [eval-lab.md](eval-lab.md) (60–90 min, full version).
+In another terminal, configure the local MCP address and start the Playground:
+
+```bash
+cd agent
+cp .env.example .env                  # MCP_URL=http://localhost:8010/mcp
+uv sync --group dev --extra eval
+agents-cli playground
+```
+
+The Chat UI is available at [http://localhost:3000/agent](http://localhost:3000/agent) when running the full Compose stack. To build and start every service locally, run this from the repository root:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+docker compose ps
+```
+
+**Tests and evaluation** (commands below run from `agent/`):
+
+```bash
+uv run --no-sync pytest tests/unit -q          # unit tests; no LLM or MCP calls
+uv run --no-sync pytest tests/integration -q    # local ADK/A2A transport tests
+
+# Live Gemini evaluation; reseed before rerunning the modifying actions dataset.
+agents-cli eval run --dataset tests/eval/datasets/quotation-actions.json --config tests/eval/eval_config.yaml --concurrency 1 --qps 0.05 --output artifacts/grade_results/actions
+agents-cli eval run --dataset tests/eval/datasets/quotation-guardrails.json --config tests/eval/eval_config.yaml --concurrency 1 --qps 0.05 --output artifacts/grade_results/guardrails
+```
+
+Run the independent self-grader from the repository root; it seeds the test database for action checks and writes a per-case report under `artifacts/grading/`:
+
+```bash
+uv run --no-sync --project agent --env-file .env python scripts/grading/grade_agent.py --suite scripts/grading/student-suite.json
+```
+
+Trustworthiness evaluation labs: [quick version](eval-lab-quick.md) (25 minutes) and [full version](eval-lab.md) (60–90 minutes).
 
 ### License
 
@@ -369,8 +396,9 @@ HTTP Request → Handler (Gin) → Service (business logic) → Repository (GORM
 | API clients | `frontend/src/api/*.ts` |
 | Page components | `frontend/src/pages/*.tsx` |
 | Shared components | `frontend/src/components/shared/*.tsx` |
-| Agent workflow graph | `agent/quotation_agent/agent.py` (`Workflow`, `Intent`, node functions) |
-| Agent prompts / fixed replies | `agent/quotation_agent/prompts.py` |
+| Agent workflow graph | `agent/quotation_agent/agent.py` (`Workflow`, `QuotationIntent`, node functions) |
+| Agent schema and deterministic policy | `agent/quotation_agent/schemas.py`, `agent/quotation_agent/policy.py` |
+| Agent environment configuration | `agent/quotation_agent/config.py` (root `.env`, optional `agent/.env`) |
 | Agent FastAPI app | `agent/quotation_agent/fast_api_app.py` |
 | Agent eval | `agent/tests/eval/eval_config.yaml`, `agent/tests/eval/datasets/*.json` |
 | MCP Server (6 tools, mcp 2.x `MCPServer`) | `mcp_server/server.py` |
@@ -498,13 +526,13 @@ bun run build                             # production build → dist/
 cd mcp_server
 uv sync && BACKEND_URL=http://localhost:8080 MCP_PORT=8010 uv run python server.py
 
-# Agent (reads agent/.env: GEMINI_API_KEY, MCP_URL, AGENT_MODEL)
+# Agent (credentials/model from repository-root .env; optional agent/.env overrides MCP_URL)
 cd agent
-uv sync --group dev
+uv sync --group dev --extra eval
 agents-cli playground                     # local web UI
 agents-cli run "我要查詢報價單，報價單編號：QT-20260330-001"
-uv run pytest tests/unit tests/integration -q
-agents-cli eval run                       # LLM-judged eval over tests/eval/datasets
+uv run --no-sync pytest tests/unit tests/integration -q
+agents-cli eval run --dataset tests/eval/datasets/quotation-actions.json --config tests/eval/eval_config.yaml
 ```
 
 ### Common Modification Scenarios

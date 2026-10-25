@@ -48,6 +48,28 @@ services:
         condition: service_started
 
 
+  agent:
+    image: ghcr.io/cshliu77/ezstore/agent:latest
+    pull_policy: always
+    environment:
+      MCP_URL: http://mcp-server:8000/mcp
+      AGENT_MODEL: ${AGENT_MODEL:-gemini-3.8-flash}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-false}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-global}
+      ALLOW_ORIGINS: ${ALLOW_ORIGINS:-http://localhost:3000}
+    expose:
+      - "8080"
+    depends_on:
+      - mcp-server
+    healthcheck:
+      test: ["CMD", "/code/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/list-apps', timeout=5).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   frontend:
     image: ghcr.io/cshliu77/ezstore/frontend:latest
     pull_policy: always
@@ -56,6 +78,7 @@ services:
     depends_on:
       - backend
       - mcp-server
+      - agent
 
   e2e:
     image: ghcr.io/cshliu77/ezstore/e2e:latest

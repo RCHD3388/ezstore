@@ -1,0 +1,14 @@
+schema: agents-cli-extension/v1alpha1
+name: ezstore-ai-studio-eval
+description: AI Studio compatibility for local evaluation with the original rubrics and SDK reports.
+requires:
+  agents_cli: ">=1.11,<2"
+  on_incompatible: warn
+commands:
+  override:
+    eval.run:
+      run: ["uv", "run", "--no-sync", "python", "scripts/eval_ai_studio.py", "run"]
+      description: Run ADK inference and grade original custom metrics through AI Studio.
+    eval.grade:
+      run: ["uv", "run", "--no-sync", "python", "scripts/eval_ai_studio.py", "grade"]
+      description: Grade saved traces through AI Studio using native SDK aggregation and reports.

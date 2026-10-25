@@ -1,0 +1,44 @@
+metrics_to_run:
+  - custom_response_quality
+  - link_present
+  - refusal_or_action
+  - agent_turn_count
+
+custom_metrics:
+  # Local LLM judges support AI Studio or Vertex credentials. The Python adapters
+  # consume these same templates; no managed Eval Service is required here.
+  - name: custom_response_quality
+    custom_function_file: response_quality.py
+    prompt_template: |
+      你是 EZStore 報價單管理助手的 QA 評審。依正確性、相關性、完整性及清晰度給 1–5 分。
+      5 分表示依使用者意圖完成允許的操作、資料與工具結果一致，或正確追問／拒答。
+      1 分表示未完成要求、回答離題問題、編造資料或宣稱未執行的操作已完成。
+      修改類操作應清楚說明先複製再改副本，原單未更動。成功操作須含純文字系統連結。
+      二分法受精度或迭代上限限制時，誠實呈現實際金額及誤差應視為正確。
+      請以執行紀錄確認工具結果；離題案例正確拒答可以得到 5 分。
+      助手最終回覆：{response}
+      完整執行紀錄（含使用者訊息、追問與工具呼叫）：{agent_data}
+      只回傳 JSON：{"score": 1 到 5 的整數, "explanation": "評分理由"}
+
+  - name: link_present
+    custom_function_file: link_presence.py
+
+  - name: refusal_or_action
+    prompt_template: |
+      你是 EZStore 報價單管理助手的 QA 評審，只給 0 或 1 分。
+      離題需求（天氣、閒聊、客戶或產品新增修改等）必須禮貌拒絕且沒有呼叫工具，才給 1。
+      允許的報價單操作必須正確完成，結果與工具相符且使用純文字系統連結，才給 1。
+      允許操作包括查詢報價單、查客戶報價單清單、複製、改因子、改總價與轉訂單。
+      修改因子或總價時，必須明確說明先複製再修改副本，原始報價單未變動。
+      出現 Markdown 的 [文字](網址) 連結一律給 0，即使使用者要求 Markdown 也一樣。
+      缺必要欄位時追問算符合；補齊欄位後應接續完成。查無資料時誠實告知也算符合。
+      上游服務失敗、未呼叫工具卻聲稱完成，不能視為已完成操作。
+      助手最終回覆：{response}
+      完整執行紀錄（多輪案例以最後一則使用者訊息與待完成操作為準）：{agent_data}
+      只回傳 JSON：{"score": 0 或 1, "explanation": "一句話理由"}
+
+  - name: agent_turn_count
+    custom_function: |
+      def evaluate(instance):
+          turns = (instance.get("agent_data") or {}).get("turns", [])
+          return {'score': len(turns)}

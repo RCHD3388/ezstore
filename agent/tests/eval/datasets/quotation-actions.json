@@ -1,0 +1,34 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "get_quotation",
+      "prompt": {"role": "user", "parts": [{"text": "我要查詢報價單，報價單編號：QT-20260330-001"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 get_quotation，回覆 QT-20260330-001 的真實詳細資訊與品項清單，保留工具原文及純文字系統連結。"}]}}
+    },
+    {
+      "eval_case_id": "list_customer_quotations",
+      "prompt": {"role": "user", "parts": [{"text": "我要查詢客戶的報價單清單，客戶名稱：史塔克工業"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 list_customer_quotations，列出史塔克工業的所有報價單，包含 QT-20260115-001 與純文字系統連結。"}]}}
+    },
+    {
+      "eval_case_id": "duplicate_quotation",
+      "prompt": {"role": "user", "parts": [{"text": "我要複製報價單，報價單編號：QT-20260330-001"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 duplicate_quotation，回覆工具實際產生的新報價單編號與純文字連結，明確識別原始報價單。"}]}}
+    },
+    {
+      "eval_case_id": "update_pricing_factor",
+      "prompt": {"role": "user", "parts": [{"text": "我要修改報價單報價因子，報價單編號：QT-20260330-001，報價因子改為 1.5"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 update_pricing_factor，先複製再將副本因子改為 1.5，原始 QT-20260330-001 未修改。原樣呈現工具文字與純文字連結。"}]}}
+    },
+    {
+      "eval_case_id": "adjust_total_price",
+      "prompt": {"role": "user", "parts": [{"text": "我要修改報價單總價，報價單編號：QT-20260330-001，總價改為 8000"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 adjust_total_price，先複製再由工具二分搜尋調整副本，原始報價單未修改。原樣呈現實際總價、誤差或精度限制說明及純文字連結，不宣稱一定精確等於 8000。"}]}}
+    },
+    {
+      "eval_case_id": "convert_to_order",
+      "prompt": {"role": "user", "parts": [{"text": "我要將報價單轉訂單，報價單編號：QT-20260330-001"}]},
+      "reference": {"response": {"role": "model", "parts": [{"text": "呼叫 convert_to_order，建立並關聯原始報價單的訂單，回覆實際訂單編號與純文字訂單連結。"}]}}
+    }
+  ]
+}
