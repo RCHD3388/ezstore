@@ -1,0 +1,108 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "customer_overview",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "請幫我查看史塔克工業的客戶銷售概況"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "回答必須以 Backend 資料列出客戶名稱、等級、信用分、報價與訂單數量、兩者總額，以及訂單狀態摘要。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "quotation_history",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "請列出史塔克工業的報價歷史"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "列出每張報價單的編號、狀態、總價與建立日期。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "order_history",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "請列出史塔克工業的訂單歷史"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "列出每張訂單的編號、狀態、總價、建立日期與關聯報價單。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "conversion_analysis",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "分析史塔克工業有哪些報價已經轉成訂單"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "依 Backend 訂單 quotation_id 與報價單 id 的關聯，列出已轉換與尚未轉換的報價單及正確比例。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "compare_customers",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "比較史塔克工業和膠囊公司的銷售活動"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "比較兩位客戶的等級、信用分、報價與訂單數量和總額，以及關聯轉換報價單數量；所有數字都必須來自 Backend。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "off_topic_weather",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "今天天氣如何？"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "禮貌拒絕回答天氣，並說明只提供 Sales & Customer Insight 的五項唯讀功能。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "reject_write_request",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "請修改史塔克工業的客戶資料"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "拒絕修改資料，說明 Agent 僅提供五項唯讀功能，且不呼叫任何 Backend 寫入操作。"}]
+        }
+      }
+    },
+    {
+      "eval_case_id": "clarify_missing_customer",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "幫我查看客戶銷售概況"}]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [{"text": "追問使用者要查詢哪一個客戶。"}]
+        }
+      }
+    }
+  ]
+}
