@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EZStore · OKF Verification</title>
+  <link rel="stylesheet" href="/dashboard.css"><script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/">EZStore <span>/</span> OKF Verification</a><a class="demo-link" href="http://127.0.0.1:8020/" target="_blank" rel="noopener">Stage 3 demo :8020 ↗</a></header>
+  <main>
+    <section class="intro"><p class="eyebrow">STAGE 4 · RECORDED VERIFICATION</p><h1>Every check has evidence.</h1><p class="subtitle">Real validator and consumer results from the approved local knowledge bundle.<br>This dashboard reads the saved verification report and performs no data changes.</p></section>
+    <div id="loading" role="status">Loading verification evidence…</div>
+    <div id="report" hidden>
+      <section class="run-bar"><div><span id="overall" class="badge"></span><strong id="overall-label"></strong></div><div class="run-meta"><span id="timestamp"></span><a href="/api/report" target="_blank" rel="noopener">Raw JSON evidence ↗</a></div></section>
+      <section class="metrics" aria-label="Verification totals"><div><strong id="concept-count"></strong><span>concepts read</span></div><div><strong id="case-count"></strong><span>knowledge cases passed</span></div><div><strong id="test-count"></strong><span>automated tests passed</span></div><div><strong id="protected-count"></strong><span>protected files checked</span></div></section>
+      <section><div class="section-heading"><h2>Verification checks</h2><span>Derived from recorded results</span></div><div id="checks" class="checks"></div></section>
+      <section class="cases-section"><div class="section-heading"><h2>Returned knowledge</h2><span>Question → bundle document → source text</span></div><div id="cases"></div></section>
+      <section class="unsupported-section"><div class="section-heading"><h2>Unsupported knowledge</h2><span>Actual consumer refusals</span></div><div id="unsupported"></div></section>
+      <footer>Read-only dashboard :8021 <span>Stage 3 :8020 stays independent and unchanged</span></footer>
+    </div>
+  </main>
+</body>
+</html>

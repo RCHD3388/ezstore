@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EZStore · Knowledge Desk</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">EZ<span>Store</span> <span class="brand-divider">/</span> Knowledge Desk</a>
+    <span class="status"><span class="dot"></span>Local &amp; read only</span>
+  </header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">OPEN KNOWLEDGE FORMAT · EZSTORE</p>
+      <h1>Answers with a source.</h1>
+      <p class="subtitle">Explore customer and quotation knowledge. Every factual answer is read from the approved local OKF bundle.</p>
+      <div class="facts"><span>4 knowledge concepts</span><span>Deterministic retrieval</span><span>No model calls</span></div>
+    </section>
+    <div class="workspace">
+      <aside>
+        <section class="panel suggestions">
+          <p class="eyebrow">TRY A QUESTION</p>
+          <button class="suggestion" type="button">What is the default pricing factor for a VIP customer?</button>
+          <button class="suggestion" type="button">What is the difference between a draft and published quotation?</button>
+          <button class="suggestion" type="button">Can a published quotation be modified?</button>
+          <button class="suggestion" type="button">How can a quotation relate to an order?</button>
+        </section>
+        <section class="panel library">
+          <p class="eyebrow">THE KNOWLEDGE BUNDLE</p>
+          <div id="concepts" aria-label="Knowledge concepts"></div>
+          <p class="scope-note">Definitions and business rules live here. Current customer values and transaction records belong to the Backend.</p>
+        </section>
+      </aside>
+      <section class="chat panel" aria-label="Knowledge conversation">
+        <div class="chat-heading"><div><span class="dot"></span><strong>Ask the bundle</strong></div><button id="reset" type="button" class="quiet">Reset demo</button></div>
+        <div id="conversation" aria-live="polite" aria-relevant="additions">
+          <div id="welcome"><div class="welcome-mark">K</div><h2>A small, grounded knowledge desk.</h2><p>Choose a suggested question or write your own.<br>Answers include the concept and document they came from.</p></div>
+        </div>
+        <form id="ask-form">
+          <label for="question">Your question</label>
+          <div class="composer"><textarea id="question" rows="2" maxlength="1000" placeholder="Ask about EZStore customer or quotation knowledge…" required></textarea><button id="ask" type="submit">Ask <span aria-hidden="true">↗</span></button></div>
+          <p>Read-only knowledge lookup · Enter to ask, Shift + Enter for a new line</p>
+        </form>
+      </section>
+    </div>
+    <footer>EZStore OKF demonstration <span>Markdown knowledge · Visible provenance</span></footer>
+  </main>
+  <dialog id="source-dialog" aria-labelledby="source-title">
+    <div class="dialog-heading"><div><p class="eyebrow">SOURCE CONCEPT</p><h2 id="source-title"></h2><code id="source-path"></code></div><button id="close-source" class="quiet" type="button">Close</button></div>
+    <div id="source-body" class="markdown"></div>
+  </dialog>
+</body>
+</html>

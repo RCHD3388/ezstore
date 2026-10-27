@@ -1,0 +1,16 @@
+[project]
+name = "ezstore-okf"
+version = "0.1.0"
+description = "Verified EZStore domain knowledge in an Open Knowledge Format bundle."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "PyYAML>=6.0.3,<7",
+    "markdown-it-py>=4,<5",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
