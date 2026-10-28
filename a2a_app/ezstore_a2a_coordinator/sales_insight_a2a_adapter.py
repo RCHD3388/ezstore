@@ -8,6 +8,7 @@ completed status message.
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
@@ -24,6 +25,29 @@ from a2a.types import (
     TaskStatusUpdateEvent,
 )
 from google.genai import types
+
+from ezstore_a2a_coordinator.routing import is_write_request
+
+
+_CUSTOMER = re.compile(r"customer|客戶", re.IGNORECASE)
+_OVERVIEW = re.compile(r"overview|概況|總覽|总览", re.IGNORECASE)
+_OTHER_INSIGHT = re.compile(
+    r"history|歷史|compare|comparison|比較|对比|conversion|轉換|转换|"
+    r"QT-\d{8}-\d{3}|quotation\s+list|報價清單",
+    re.IGNORECASE,
+)
+_EXTRA_WRITE = re.compile(r"\b(?:add|change|save|place)\b|新增|變更|变更", re.IGNORECASE)
+_WRITE_REFUSAL = "This A2A service is read-only. Business changes are not available."
+_SCOPE_REFUSAL = "This A2A service supports Customer Overview only."
+
+
+def _allowed_request(text: str) -> bool:
+    """Expose only the existing Customer Overview workflow operation."""
+    return bool(
+        _CUSTOMER.search(text)
+        and _OVERVIEW.search(text)
+        and not _OTHER_INSIGHT.search(text)
+    )
 
 
 def _event_text(event: Any) -> str:
@@ -73,17 +97,22 @@ class SalesInsightA2AAdapter(AgentExecutor):
             raise ValueError("A2A request must contain user text.")
 
         session_id = context.context_id or uuid.uuid4().hex
-        events = [
-            event
-            async for event in self._runner.run_async(
-                user_id=self._user_id,
-                session_id=session_id,
-                new_message=types.Content(
-                    role="user", parts=[types.Part(text=request_text)]
-                ),
-            )
-        ]
-        response_text = _final_workflow_text(events)
+        if is_write_request(request_text) or _EXTRA_WRITE.search(request_text):
+            response_text = _WRITE_REFUSAL
+        elif not _allowed_request(request_text):
+            response_text = _SCOPE_REFUSAL
+        else:
+            events = [
+                event
+                async for event in self._runner.run_async(
+                    user_id=self._user_id,
+                    session_id=session_id,
+                    new_message=types.Content(
+                        role="user", parts=[types.Part(text=request_text)]
+                    ),
+                )
+            ]
+            response_text = _final_workflow_text(events)
         task_id = context.task_id or uuid.uuid4().hex
         context_id = context.context_id or session_id
         response_message = Message(
@@ -137,7 +166,7 @@ async def create_sales_insight_a2a_app():
         create_jsonrpc_routes,
     )
     from a2a.server.tasks import InMemoryTaskStore
-    from a2a.types import AgentCapabilities, AgentCard, AgentInterface
+    from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
     from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
     from dotenv import load_dotenv
     from fastapi import FastAPI
@@ -169,6 +198,16 @@ async def create_sales_insight_a2a_app():
         rpc_url=f"{base_url}{rpc_path}",
         agent_version="0.1.0",
     ).build()
+    card.skills.clear()
+    card.skills.append(
+        AgentSkill(
+            id="customer_overview",
+            name="Customer Overview",
+            description="Read-only customer sales overview from the existing Sales Insight Agent.",
+            tags=["customer", "sales", "read-only"],
+            examples=["Give me an overview of customer 史塔克工業."],
+        )
+    )
     if not any(i.protocol_binding == "JSONRPC" for i in card.supported_interfaces):
         card.supported_interfaces.append(
             AgentInterface(
